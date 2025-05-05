@@ -1,0 +1,102 @@
+{
+    "app_title": {
+      "tr": "Wake On LAN Yönetim Aracı",
+      "en": "Wake On LAN Management Tool"
+    },
+    "add_button": {
+      "tr": "Cihaz Ekle",
+      "en": "Add Device"
+    },
+    "scan_button": {
+      "tr": "Ağ Tara",
+      "en": "Scan Network"
+    },
+    "refresh_button": {
+      "tr": "Yenile",
+      "en": "Refresh"
+    },
+    "selected_device_label": {
+      "tr": "Seçili Cihaz",
+      "en": "Selected Device"
+    },
+    "wake_button": {
+      "tr": "⚡ Uyandır",
+      "en": "⚡ Wake"
+    },
+    "shutdown_button": {
+      "tr": "⭘ Kapat",
+      "en": "⭘ Shutdown"
+    },
+    "restart_button": {
+      "tr": "↻ Yeniden Başlat",
+      "en": "↻ Restart"
+    },
+    "edit_button": {
+      "tr": "✎ Düzenle",
+      "en": "✎ Edit"
+    },
+    "delete_button": {
+      "tr": "× Sil",
+      "en": "× Delete"
+    },
+    "header_label": {
+      "tr": "Cihaz Listesi",
+      "en": "Device List"
+    },
+    "msgbox_success_title": {
+        "tr": "Başarılı",
+        "en": "Success"
+      },
+      "msgbox_shutdown_sent": {
+        "tr": "{name} cihazına kapatma komutu gönderildi.",
+        "en": "Shutdown command sent to {name}."
+      },
+      "warning_ssh_auth": {
+        "tr": "{name} için kimlik doğrulama hatası. Kullanıcı adı/şifre veya anahtar dosyasını kontrol edin.",
+        "en": "Authentication failed for {name}. Check username/password or key file."
+      },
+      "warning_ssh_error": {
+        "tr": "{name} cihazına bağlanırken SSH hatası: {error}",
+        "en": "SSH error while connecting to {name}: {error}"
+      },
+      "warning_connection_error": {
+        "tr": "{name} cihazına bağlanılamadı: {error}",
+        "en": "Could not connect to {name}: {error}"
+      },
+      "warning_generic_error": {
+        "tr": "Bir hata oluştu: {error}",
+        "en": "An error occurred: {error}"
+      },
+      "warning_no_ip": {
+        "tr": "{name} için IP adresi tanımlı değil.",
+        "en": "No IP address defined for {name}."
+      },
+      "warning_no_ssh_user": {
+        "tr": "{name} için SSH kullanıcı adı tanımlı değil.",
+        "en": "No SSH username defined for {name}."
+      },
+      "warning_ssh_title": {
+        "tr": "SSH Hatası",
+        "en": "SSH Error"
+      },
+      "warning_connection_title": {
+        "tr": "Bağlantı Hatası",
+        "en": "Connection Error"
+      },
+      "warning_generic_title": {
+        "tr": "Hata",
+        "en": "Error"
+      },
+      "warning_alert_title": {
+        "tr": "Uyarı",
+        "en": "Warning"
+      },
+     "status_online": {
+       "tr": "Çevrimiçi",
+       "en": "Online"
+     },
+     "status_offline": {
+       "tr": "Çevrimdışı",
+       "en": "Offline"
+     }
+ }
