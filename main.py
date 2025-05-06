@@ -388,11 +388,11 @@ class DeviceStatusChecker(QThread):
         try:
             # Ping komutu
             if sys.platform.startswith('win'):
-                command = ['ping', '-n', '1', '-w', '1000', ip_address] # Windows: -n 1 paket, -w 1000ms timeout
+                command = ['C:\\Windows\\System32\\ping.exe', '-n', '1', '-w', '1000', ip_address] # Windows: Tam yolu belirtildi
             else:
                 command = ['ping', '-c', '1', '-W', '2', ip_address] # Linux/macOS: -c 1 paket, -W 2s timeout
 
-            result = subprocess.run(command, capture_output=True, text=True, timeout=0.5)
+            result = subprocess.run(command, capture_output=True, text=True, timeout=2, creationflags=subprocess.CREATE_NO_WINDOW) # Zaman aşımı 2 saniyeye çıkarıldı ve pencere gizlendi
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
             return False # Ping zaman aşımına uğradı veya komut bulunamadı
