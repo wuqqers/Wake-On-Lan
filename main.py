@@ -507,6 +507,24 @@ class DeviceDialog(QDialog):
         button_box.addButton(save_button, QDialogButtonBox.AcceptRole)
         button_box.addButton(cancel_button, QDialogButtonBox.RejectRole)
         
+        # Butonların stilini ayarla
+        for button in button_box.buttons():
+            button.setStyleSheet("""
+                QPushButton {
+                    color: black;
+                    background-color: #f0f0f0;
+                    border: 1px solid #c0c0c0;
+                    border-radius: 4px;
+                    padding: 5px 10px;
+                }
+                QPushButton:hover {
+                    background-color: #e0e0e0;
+                }
+                QPushButton:pressed {
+                    background-color: #d0d0d0;
+                }
+            """)
+        
         layout.addWidget(button_box)
         
         # Eğer cihaz bilgisi varsa alanları doldur
@@ -1006,6 +1024,25 @@ class MainWindow(QMainWindow):
         button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, ip_dialog)
         button_box.accepted.connect(ip_dialog.accept)
         button_box.rejected.connect(ip_dialog.reject)
+        
+        # Butonların stilini ayarla
+        for button in button_box.buttons():
+            button.setStyleSheet("""
+                QPushButton {
+                    color: black;
+                    background-color: #f0f0f0;
+                    border: 1px solid #c0c0c0;
+                    border-radius: 4px;
+                    padding: 5px 10px;
+                }
+                QPushButton:hover {
+                    background-color: #e0e0e0;
+                }
+                QPushButton:pressed {
+                    background-color: #d0d0d0;
+                }
+            """)
+            
         layout.addWidget(button_box)
 
         if ip_dialog.exec_() == QDialog.Accepted:
