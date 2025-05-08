@@ -378,28 +378,99 @@ class DeviceStatusChecker(QThread):
 
             ip_address = device.get('ip_address')
             if ip_address:
-                is_online = self.check_ping(ip_address)
+                # Birincil kontrol: Ping ile kontrol et
+                ping_result = self.check_ping(ip_address)
+                
+                # İkincil kontrol: Soket bağlantısı ile kontrol et
+                socket_result = False
+                if not ping_result:  # Ping başarısız olduysa soket kontrolü yap
+                    socket_result = self.check_socket_connection(ip_address)
+                
+                # Her iki kontrolden biri başarılıysa cihaz çevrimiçi kabul edilir
+                is_online = ping_result or socket_result
+                
+                # Sonucu bildir
                 self.status_checked.emit(ip_address, is_online)
 
         self.finished.emit()
 
     def check_ping(self, ip_address):
         """Belirtilen IP adresine ping atarak cihazın çevrimiçi olup olmadığını kontrol eder"""
-        try:
-            # Ping komutu
-            if sys.platform.startswith('win'):
-                command = ['C:\\Windows\\System32\\ping.exe', '-n', '1', '-w', '1000', ip_address] # Windows: Tam yolu belirtildi
-            else:
-                command = ['ping', '-c', '1', '-W', '2', ip_address] # Linux/macOS: -c 1 paket, -W 2s timeout
+        # Ping denemesi sayısı ve başarılı olması gereken minimum sayı
+        max_attempts = 3
+        min_success = 2
+        success_count = 0
+        
+        for attempt in range(max_attempts):
+            try:
+                # Ping komutu - daha uzun timeout değeri ile
+                if sys.platform.startswith('win'):
+                    command = ['C:\\Windows\\System32\\ping.exe', '-n', '1', '-w', '2000', ip_address] # Windows: 2 saniye timeout
+                else:
+                    command = ['ping', '-c', '1', '-W', '3', ip_address] # Linux/macOS: 3 saniye timeout
 
-            result = subprocess.run(command, capture_output=True, text=True, timeout=2, creationflags=subprocess.CREATE_NO_WINDOW) # Zaman aşımı 2 saniyeye çıkarıldı ve pencere gizlendi
-            return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return False # Ping zaman aşımına uğradı veya komut bulunamadı
-        except Exception as e: # Diğer hatalar için genel yakalama ve loglama (isteğe bağlı)
-            print(f"Ping veya ARP hatası: {e}")
-
-        return None
+                # Ping işlemini çalıştır
+                creation_flags = subprocess.CREATE_NO_WINDOW if sys.platform.startswith('win') else 0
+                result = subprocess.run(
+                    command, 
+                    capture_output=True, 
+                    text=True, 
+                    timeout=3, 
+                    creationflags=creation_flags
+                )
+                
+                # Başarılı ping yanıtı alındıysa sayacı artır
+                if result.returncode == 0:
+                    success_count += 1
+                    
+                    # Minimum başarı sayısına ulaşıldıysa erken dön
+                    if success_count >= min_success:
+                        return True
+                        
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                # Zaman aşımı veya komut bulunamadı hatası - devam et
+                pass
+            except Exception as e:
+                # Diğer hatalar için loglama yap
+                print(f"Ping hatası (deneme {attempt+1}/{max_attempts}): {e}")
+                
+            # Denemeler arasında kısa bir bekleme
+            if attempt < max_attempts - 1:
+                QThread.msleep(500)  # 500 ms bekle
+        
+        # Eğer minimum başarı sayısına ulaşılamadıysa, cihaz çevrimdışı kabul edilir
+        return False
+        
+    def check_socket_connection(self, ip_address):
+        """Belirtilen IP adresine soket bağlantısı kurarak cihazın çevrimiçi olup olmadığını kontrol eder"""
+        # Yaygın portlar listesi (HTTP, HTTPS, SSH, SMB)
+        common_ports = [80, 443, 22, 445]
+        timeout = 1.0  # Saniye cinsinden zaman aşımı
+        
+        for port in common_ports:
+            try:
+                # Soket oluştur
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(timeout)
+                
+                # Bağlantı dene
+                result = sock.connect_ex((ip_address, port))
+                sock.close()
+                
+                # Bağlantı başarılıysa (0 döndürür)
+                if result == 0:
+                    print(f"Soket bağlantısı başarılı: {ip_address}:{port}")
+                    return True
+                    
+            except (socket.timeout, socket.error):
+                # Zaman aşımı veya soket hatası - devam et
+                pass
+            except Exception as e:
+                # Diğer hatalar için loglama yap
+                print(f"Soket bağlantı hatası ({ip_address}:{port}): {e}")
+        
+        # Hiçbir porta bağlantı kurulamadıysa, cihaz çevrimdışı kabul edilir
+        return False
 
     def stop(self):
         """İş parçacığını durdurma isteği gönderir"""
@@ -1125,12 +1196,27 @@ class MainWindow(QMainWindow):
             if ip_item and ip_item.text() == ip_address:
                 status_item = self.device_table.item(row, 3) # Durum sütunu
                 if status_item:
+                    # Durum bilgisini güncelle ve renklendirme yap
                     if is_online:
                         status_item.setText(translations["status_online"][self.current_lang])
                         status_item.setForeground(QColor("green"))
+                        
+                        # Cihaz bilgisini güncelle (UserRole verisinde)
+                        device_item = self.device_table.item(row, 0)
+                        if device_item:
+                            device = device_item.data(Qt.UserRole)
+                            if device:
+                                device['last_seen'] = True  # Son görülme durumunu işaretle
                     else:
                         status_item.setText(translations["status_offline"][self.current_lang])
                         status_item.setForeground(QColor("red"))
+                        
+                        # Cihaz bilgisini güncelle
+                        device_item = self.device_table.item(row, 0)
+                        if device_item:
+                            device = device_item.data(Qt.UserRole)
+                            if device:
+                                device['last_seen'] = False  # Son görülme durumunu işaretle
                 break # Cihaz bulundu, döngüyü sonlandır
 
     def update_scan_progress(self, value):
