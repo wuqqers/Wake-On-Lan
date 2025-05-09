@@ -372,13 +372,18 @@ class DeviceStatusChecker(QThread):
 
     def run(self):
         """İş parçacığının çalıştırma metodu"""
-        for device in self.devices:
+        total_devices = len(self.devices)
+        
+        for i, device in enumerate(self.devices):
             if not self._is_running:
                 break # İptal edildiyse döngüyü sonlandır
 
+            # UI'nin yanıt vermesini sağla
+            QApplication.processEvents()
+
             ip_address = device.get('ip_address')
             if ip_address:
-                # Birincil kontrol: Ping ile kontrol et
+                # Birincil kontrol: Ping ile kontrol et (daha hızlı timeout ile)
                 ping_result = self.check_ping(ip_address)
                 
                 # İkincil kontrol: Soket bağlantısı ile kontrol et
@@ -392,22 +397,23 @@ class DeviceStatusChecker(QThread):
                 # Sonucu bildir
                 self.status_checked.emit(ip_address, is_online)
 
+        # İşlem tamamlandı sinyali gönder
         self.finished.emit()
 
     def check_ping(self, ip_address):
         """Belirtilen IP adresine ping atarak cihazın çevrimiçi olup olmadığını kontrol eder"""
-        # Ping denemesi sayısı ve başarılı olması gereken minimum sayı
-        max_attempts = 3
-        min_success = 2
+        # Ping denemesi sayısı ve başarılı olması gereken minimum sayı - daha az deneme ve daha kısa timeout
+        max_attempts = 2  # 3'ten 2'ye düşürüldü
+        min_success = 1   # 2'den 1'e düşürüldü
         success_count = 0
         
         for attempt in range(max_attempts):
             try:
-                # Ping komutu - daha uzun timeout değeri ile
+                # Ping komutu - daha kısa timeout değeri ile
                 if sys.platform.startswith('win'):
-                    command = ['C:\\Windows\\System32\\ping.exe', '-n', '1', '-w', '2000', ip_address] # Windows: 2 saniye timeout
+                    command = ['C:\\Windows\\System32\\ping.exe', '-n', '1', '-w', '1000', ip_address] # Windows: 1 saniye timeout
                 else:
-                    command = ['ping', '-c', '1', '-W', '3', ip_address] # Linux/macOS: 3 saniye timeout
+                    command = ['ping', '-c', '1', '-W', '1', ip_address] # Linux/macOS: 1 saniye timeout
 
                 # Ping işlemini çalıştır
                 creation_flags = subprocess.CREATE_NO_WINDOW if sys.platform.startswith('win') else 0
@@ -415,7 +421,7 @@ class DeviceStatusChecker(QThread):
                     command, 
                     capture_output=True, 
                     text=True, 
-                    timeout=3, 
+                    timeout=1.5,  # Daha kısa timeout
                     creationflags=creation_flags
                 )
                 
@@ -434,18 +440,18 @@ class DeviceStatusChecker(QThread):
                 # Diğer hatalar için loglama yap
                 print(f"Ping hatası (deneme {attempt+1}/{max_attempts}): {e}")
                 
-            # Denemeler arasında kısa bir bekleme
+            # Denemeler arasında daha kısa bir bekleme
             if attempt < max_attempts - 1:
-                QThread.msleep(500)  # 500 ms bekle
+                QThread.msleep(200)  # 500ms'den 200ms'ye düşürüldü
         
         # Eğer minimum başarı sayısına ulaşılamadıysa, cihaz çevrimdışı kabul edilir
         return False
         
     def check_socket_connection(self, ip_address):
         """Belirtilen IP adresine soket bağlantısı kurarak cihazın çevrimiçi olup olmadığını kontrol eder"""
-        # Yaygın portlar listesi (HTTP, HTTPS, SSH, SMB)
-        common_ports = [80, 443, 22, 445]
-        timeout = 1.0  # Saniye cinsinden zaman aşımı
+        # Yaygın portlar listesi - en yaygın olanları önce dene
+        common_ports = [80, 443]  # Sadece en yaygın portları kontrol et
+        timeout = 0.5  # Timeout süresini 1.0'dan 0.5'e düşür
         
         for port in common_ports:
             try:
@@ -459,15 +465,15 @@ class DeviceStatusChecker(QThread):
                 
                 # Bağlantı başarılıysa (0 döndürür)
                 if result == 0:
-                    print(f"Soket bağlantısı başarılı: {ip_address}:{port}")
-                    return True
+                    return True  # Loglama kaldırıldı, performans için
                     
             except (socket.timeout, socket.error):
                 # Zaman aşımı veya soket hatası - devam et
                 pass
             except Exception as e:
-                # Diğer hatalar için loglama yap
-                print(f"Soket bağlantı hatası ({ip_address}:{port}): {e}")
+                # Diğer hatalar için loglama yap - kritik hatalar için
+                if not isinstance(e, (socket.timeout, socket.error)):
+                    print(f"Soket bağlantı hatası ({ip_address}:{port}): {e}")
         
         # Hiçbir porta bağlantı kurulamadıysa, cihaz çevrimdışı kabul edilir
         return False
@@ -1032,7 +1038,7 @@ class MainWindow(QMainWindow):
         """Cihaz listesini tablodan alıp tabloyu doldurur"""
         self.device_table.setRowCount(0) # Tabloyu temizle
         self.device_table.setColumnCount(4)
-        self.device_table.setHorizontalHeaderLabels(["Ad", "MAC Adresi", "IP Adresi", "Durum"])
+        self.device_table.setHorizontalHeaderLabels(translations["table_headers"][self.current_lang])
 
         # Optimize column widths
         header = self.device_table.horizontalHeader()
@@ -1156,7 +1162,7 @@ class MainWindow(QMainWindow):
             return 0
 
     def start_status_check(self):
-        """Tüm cihazların çevrimiçi durumunu kontrol etmeyi başlatır"""
+        """Tüm cihazların çevrimiçi durumunu kontrol etmeyi başlatır (arka planda)"""
         # Önceki kontrol çalışıyorsa durdur
         if self.status_checker_thread and self.status_checker_thread.isRunning():
             self.status_checker_thread.stop()
@@ -1166,13 +1172,22 @@ class MainWindow(QMainWindow):
         if not devices:
             return # Kontrol edilecek cihaz yok
 
+        # Arka planda çalıştır - ilerleme çubuğu gösterme
         self.status_checker_thread = DeviceStatusChecker(devices)
         self.status_checker_thread.status_checked.connect(self.update_device_status)
         self.status_checker_thread.finished.connect(self.status_check_finished)
         self.status_checker_thread.start()
+        
+    # Arka planda çalıştığı için ilerleme çubuğu güncellemesi kaldırıldı
+        
+    def cancel_status_check(self):
+        """Durum kontrolünü iptal eder"""
+        if self.status_checker_thread and self.status_checker_thread.isRunning():
+            self.status_checker_thread.stop()
+            self.status_checker_thread.wait()
 
     def start_status_check_for_device(self, row):
-        """Belirtilen satırdaki cihazın çevrimiçi durumunu kontrol etmeyi başlatır"""
+        """Belirtilen satırdaki cihazın çevrimiçi durumunu kontrol etmeyi başlatır (arka planda)"""
         if 0 <= row < self.device_table.rowCount():
             device_item = self.device_table.item(row, 0)
             if device_item:
