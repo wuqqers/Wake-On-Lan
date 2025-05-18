@@ -12,7 +12,7 @@ executables = [
 setup(
     name = "WakeonLan",
     version = "0.1",
-    description = "main.py uygulamasının çalıştırılabilir versiyonu",
+    description = "WakeOnLan",
     executables = executables,
     options = {"build_exe": {"include_files": ["translations.json", "lan.ico"]}}
 )
